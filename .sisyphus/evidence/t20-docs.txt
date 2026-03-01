@@ -1,0 +1,50 @@
+# B 站视频语音识别与摘要系统
+
+一个完整的 B 站视频处理流水线，支持视频抓取、语音识别转文本（带时间戳）、视频内容摘要生成。
+
+## 功能特性
+
+- **视频提交**: 支持 B 站视频 URL 提交
+- **语音识别**: 使用 WhisperX 进行高精度语音转文本，输出词级时间戳
+- **内容摘要**: 使用 Ollama + Qwen2.5 生成视频内容摘要和关键点
+- **任务队列**: Redis 异步任务队列，支持优先级调度
+- **Web 界面**: React + Ant Design 管理界面，实时查看处理进度
+- **API 服务**: Go + Gin RESTful API，支持完整 CRUD 操作
+
+## 技术栈
+
+| 组件 | 技术 |
+|------|------|
+| 后端 API | Go 1.21 + Gin + GORM |
+| Python 服务 | FastAPI + WhisperX + Ollama |
+| 前端 | React 19 + TypeScript + Ant Design 6 |
+| 数据库 | PostgreSQL 15 |
+| 缓存/队列 | Redis 7 |
+| 部署 | Docker Compose |
+
+## 快速开始
+
+### 前置要求
+
+- Docker 和 Docker Compose
+- NVIDIA GPU（用于 WhisperX 语音识别，可选）
+- Node.js 18+（仅开发）
+- Go 1.21+（仅开发）
+
+### 1. 克隆项目
+
+```bash
+git clone <repository-url>
+cd stock
+```
+
+### 2. 配置环境变量
+
+复制环境变量模板并修改配置：
+
+```bash
+cp .env.example .env
+```
+
+编辑 `.env` 文件：
+

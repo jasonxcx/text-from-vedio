@@ -1,0 +1,35 @@
+T2: SQLite 数据库设计 - 验证结果
+
+验证命令:
+python -c "from app.database import init_db; init_db(); print('OK')"
+
+输出: OK
+
+验证命令:
+python -c "from app.database import init_db, add_video; init_db(); v = add_video('BV1test', 'Test', 'http://test.com'); print(f'Created video id={v}')"
+
+输出: Created video id=1
+
+测试的CRUD操作:
+1. init_db() - 初始化数据库和表
+2. add_video() - 添加视频
+3. get_video() - 获取单个视频
+4. get_all_videos() - 获取所有视频
+5. add_transcript() - 添加转录
+6. get_transcripts_by_video() - 获取视频转录
+7. add_summary() - 添加摘要
+8. get_summary_by_video() - 获取视频摘要
+
+数据库表:
+- videos: id, bilibili_id, title, url, duration, status, created_at
+- transcripts: id, video_id, start_seconds, end_seconds, text, order_index
+- summaries: id, video_id, summary_text, key_points, created_at
+
+索引:
+- idx_videos_bilibili_id
+- idx_videos_status
+- idx_transcripts_video_id
+- idx_transcripts_order
+- idx_summaries_video_id
+
+状态: 完成

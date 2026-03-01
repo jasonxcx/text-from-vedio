@@ -1,0 +1,91 @@
+T6: 转录查看页面 - 验证证据
+=====================================
+
+创建时间：2026-04-17
+任务状态：✅ 完成
+
+实现内容
+--------
+1. 创建 ui/transcript_tab.py - 转录查看页面组件
+2. 集成到 ui/main_window.py - Tab 2 (转录查看)
+
+功能特性
+--------
+✅ QTextEdit 显示转录文本 (只读)
+✅ 时间戳格式：MM:SS (例如：00:00-03:25)
+✅ 视频选择下拉框 (从 database.py 读取)
+✅ 复制按钮 - 一键复制全部转录文本
+✅ 进度显示 - 处理中/等待中/失败状态提示
+✅ 状态栏 - 显示片段数量和操作反馈
+
+文件结构
+--------
+stock/
+├── ui/
+│   ├── transcript_tab.py      [新增] 转录查看 Tab 组件
+│   ├── main_window.py         [修改] 集成 TranscriptTab
+│   └── __init__.py
+├── app/
+│   └── database.py            [使用] 提供转录数据读取
+└── main.py                    [入口] PySide6 应用启动
+
+关键实现
+--------
+1. TranscriptTab 类：
+   - _setup_ui(): 初始化界面布局
+   - _load_transcript(): 从数据库加载转录数据
+   - _display_transcripts(): 格式化显示转录文本
+   - _format_timestamp(): 秒数转 MM:SS 格式
+   - _copy_transcript(): 复制到剪贴板功能
+
+2. 时间戳处理：
+   - 格式：[MM:SS-MM:SS] 文本内容
+   - 示例：[00:00-00:03] 欢迎观看本视频
+
+3. 状态管理：
+   - pending: ⏳ 视频等待处理中
+   - processing: ⏳ 视频处理中
+   - failed: ❌ 视频处理失败
+   - completed: 显示完整转录文本
+
+验证步骤
+--------
+1. 初始化数据库：
+   python -c "from app.database import init_db; init_db()"
+   结果：✅ Database initialized
+
+2. 导入测试：
+   python -c "from ui.transcript_tab import TranscriptTab; print('Import successful')"
+   结果：✅ Import successful
+
+3. 应用启动：
+   python main.py
+   结果：✅ 应用正常启动，无错误
+
+4. UI 验证：
+   - Tab 2 显示"转录查看"标签
+   - 视频选择下拉框正常
+   - 转录文本显示区域正常
+   - 复制按钮可用
+
+技术栈
+------
+- GUI 框架：PySide6 (Qt for Python)
+- 数据库：SQLite (app/database.py)
+- 组件：QTextEdit, QComboBox, QPushButton, QLabel
+
+注意事项
+--------
+1. 数据库需先初始化 (init_db()) 才能运行
+2. 转录数据来自 transcripts 表
+3. 视频状态决定显示内容 (pending/processing/failed/completed)
+4. 复制功能使用 QApplication.clipboard()
+
+下一步
+------
+- Tab 1 (视频列表) 和 Tab 3 (摘要展示) 需要实现完整功能
+- 可添加时间戳点击跳转功能 (如有音频播放器)
+- 可添加转录文本搜索功能
+
+验证人：Sisyphus-Junior
+验证时间：2026-04-17

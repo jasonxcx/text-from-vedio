@@ -1,0 +1,12 @@
+T9 完整流程集成测试
+
+验证命令:
+python -m pytest tests/test_integration_flow.py
+
+结果:
+- 2 passed
+
+覆盖范围:
+- 数据库临时 SQLite 读写
+- 视频添加 -> 处理 -> 转录 -> 摘要完整流程
+- UI 信号驱动 worker 启动与 tab 刷新

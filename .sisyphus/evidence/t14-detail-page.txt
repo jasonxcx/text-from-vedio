@@ -1,0 +1,11 @@
+T14: React - 视频详情和转录页面 - 构建验证
+构建时间：Sun Mar  1 03:14:48     2026
+
+构建输出:
+✓ 3060 modules transformed
+✓ built in 6.34s
+
+创建的文件:
+- frontend/src/pages/VideoDetail.tsx
+- frontend/src/components/TranscriptViewer.tsx
+- frontend/src/App.tsx (更新路由)

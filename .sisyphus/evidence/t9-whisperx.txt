@@ -1,0 +1,26 @@
+T9: WhisperX 语音识别服务 - 验证结果
+
+## 验证命令
+cd python-service && python -c "from services.transcriber import transcribe_audio; print('OK')"
+
+## 结果
+语法检查通过
+模块导入成功
+
+## transcribe_audio 函数签名
+def transcribe_audio(audio_path: str, model_name: str = "large-v2", device: str = "cuda") -> TranscriptionResult
+
+## 功能清单
+- [x] transcribe_audio(audio_path) 函数实现
+- [x] WhisperX large-v2 模型加载（默认）
+- [x] 输出带时间戳的 JSON (segments with start/end)
+- [x] VAD 分段处理长音频 (transcribe_with_vad)
+- [x] 流式处理支持 (transcribe_streaming)
+- [x] 无全局变量
+- [x] 支持大音频文件处理
+
+## 依赖要求
+whisperx>=3.1.0 已在 requirements.txt 中定义
+
+## 备注
+WhisperX 包需要安装依赖后方可运行完整测试

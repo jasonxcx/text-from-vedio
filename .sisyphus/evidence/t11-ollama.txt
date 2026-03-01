@@ -1,0 +1,12 @@
+# T11: Ollama Service Test - Evidence
+
+## Test Command
+```
+cd python-service && python -c "import ollama; print('Ollama OK')"
+```
+
+## Result
+Ollama OK
+
+## Date
+2026-03-01

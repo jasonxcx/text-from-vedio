@@ -1,0 +1,62 @@
+T10: Go - 数据库模型 (GORM) - Build Verification
+================================================
+
+Date: 2026-03-01
+Status: SUCCESS
+
+Files Created:
+- go-api/internal/models/video.go (Video model with CRUD operations)
+- go-api/internal/models/task.go (TranscriptionTask model with CRUD operations)
+- go-api/internal/models/segment.go (TranscriptSegment model with CRUD operations)
+- go-api/internal/models/summary.go (VideoSummary model with CRUD operations)
+- go-api/internal/models/database.go (Database connection and all CRUD operations)
+
+Build Command: cd go-api && go build ./internal/models/...
+Build Result: SUCCESS (exit code 0)
+
+Vet Command: cd go-api && go vet ./internal/models/...
+Vet Result: SUCCESS (no issues)
+
+Dependencies Added:
+- gorm.io/gorm v1.30.0
+- gorm.io/driver/postgres v1.6.0
+
+Models Implemented:
+1. Video - Bilibili video information
+   - Fields: ID, BilibiliID, Title, Duration, Status, CreatedAt
+   - Relations: HasMany Tasks, HasOne Summary
+   - Indexes: status, bilibili_id
+
+2. TranscriptionTask - ASR transcription job tracking
+   - Fields: ID, VideoID, Status, Progress, ModelName, Error, CreatedAt, UpdatedAt
+   - Relations: BelongsTo Video, HasMany Segments
+   - Indexes: video_id, status
+
+3. TranscriptSegment - ASR output segments
+   - Fields: ID, TaskID, StartSeconds, EndSeconds, Text, Speaker, OrderIndex
+   - Relations: BelongsTo Task
+   - Indexes: task_id, (task_id, order_index)
+
+4. VideoSummary - AI-generated summaries
+   - Fields: ID, VideoID, SummaryText, KeyPoints, ModelName, CreatedAt
+   - Relations: BelongsTo Video
+   - Indexes: video_id (unique)
+
+CRUD Operations Implemented:
+- Video: Create, GetByID, GetByBilibiliID, UpdateStatus, List, Delete
+- TranscriptionTask: Create, GetByID, GetByVideoID, UpdateStatus, UpdateProgress, UpdateError, Delete
+- TranscriptSegment: Create, CreateInBatches, GetByTaskID, Delete, DeleteByTaskID
+- VideoSummary: Create, GetByVideoID, Update, Delete
+
+Database Functions:
+- InitDB(dsn string) - Initialize database connection
+- GetDB() - Get database instance
+- AutoMigrate() - Run auto migration for all models
+- CloseDB() - Close database connection
+
+All models follow GORM conventions:
+- TableName() methods for explicit table names
+- Proper foreign key constraints with ON DELETE CASCADE
+- Context-aware operations for cancellation support
+- No global variables (except DB connection which is initialized once)
+- No sensitive data storage

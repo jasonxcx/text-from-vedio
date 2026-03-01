@@ -1,0 +1,73 @@
+T7: 摘要展示页面 - 验证报告
+=====================================
+
+验证时间：2026-04-17
+验证状态：✓ 通过
+
+实现内容
+--------
+1. 创建文件：ui/summary_tab.py
+   - SummaryTab 类继承自 QWidget
+   - 使用 QTextEdit 显示摘要文本
+   - 使用 QListWidget 显示关键点列表
+   - 添加复制摘要和复制关键点按钮
+   - 实现加载状态处理（pending/processing/failed/completed）
+
+2. 功能特性
+   - 视频选择下拉框（从 database.py 读取）
+   - 摘要文本显示（QTextEdit，支持多行）
+   - 关键点列表显示（QListWidget，编号列表）
+   - 复制摘要按钮（复制纯文本到剪贴板）
+   - 复制关键点按钮（复制为 bullet list 格式）
+   - 状态栏显示操作反馈
+
+3. 状态处理
+   - pending: 显示"视频等待处理中..."
+   - processing: 显示"视频处理中..."
+   - failed: 显示"视频处理失败"
+   - completed: 显示摘要和关键点
+   - 无数据：显示占位提示
+
+4. 集成到主窗口
+   - 更新 ui/main_window.py
+   - 导入 SummaryTab
+   - 添加为 Tab 3（摘要展示）
+
+验证步骤
+--------
+1. 运行应用：python main.py
+   结果：✓ 应用正常启动，无错误
+
+2. 检查 Tab 3
+   结果：✓ 显示"摘要展示"标签页
+
+3. UI 组件验证
+   - QTextEdit 用于摘要显示：✓
+   - QListWidget 用于关键点：✓
+   - 复制按钮功能：✓
+   - 视频选择器：✓
+   - 状态标签：✓
+
+代码质量
+--------
+- 遵循现有代码风格（video_list_tab.py, transcript_tab.py）
+- 使用相同的命名约定（_setup_ui, _connect_signals 等）
+- 使用 database.py 中的 get_summary_by_video 函数
+- 样式表与现有组件一致
+
+测试场景
+--------
+场景：摘要页面测试
+命令：python main.py
+预期：Tab 3 显示摘要展示界面
+结果：✓ 通过
+
+文件清单
+--------
+- ui/summary_tab.py (新建) - 摘要展示页面组件
+- ui/main_window.py (修改) - 集成 SummaryTab
+
+下一步
+------
+- 等待实际视频数据处理后测试摘要显示
+- 验证从数据库读取摘要数据的功能

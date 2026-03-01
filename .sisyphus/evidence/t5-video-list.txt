@@ -1,0 +1,62 @@
+T5: Video List Tab - Implementation Evidence
+=============================================
+Date: 2026-04-17
+Task: Create Video List Tab for BiliBili ASR System
+
+IMPLEMENTATION COMPLETED
+========================
+
+Files Created:
+--------------
+1. ui/video_list_tab.py (320 lines)
+   - VideoListTab class with QTableWidget
+   - Add video button and URL input field
+   - Status filter dropdown (All/Processing/Completed/Failed/Pending)
+   - Refresh functionality
+   - Delete selected videos
+   - View video details
+
+Files Modified:
+---------------
+1. ui/main_window.py
+   - Added import: from ui.video_list_tab import VideoListTab
+   - Registered VideoListTab as Tab 1 (视频列表)
+
+Features Implemented:
+--------------------
+✓ QTableWidget displaying video list (ID, Title, Bilibili ID, Duration, Status, Actions)
+✓ Add Video button with URL input field
+✓ Bilibili URL validation and ID extraction (supports BV and av formats)
+✓ Status filter dropdown: 全部/处理中/已完成/失败/待处理
+✓ Refresh button to reload video list
+✓ Delete selected videos with confirmation
+✓ View video details popup
+✓ Database integration using app.database CRUD functions:
+  - get_all_videos(status)
+  - add_video()
+  - delete_video()
+  - get_video_by_bilibili_id()
+✓ Color-coded status display
+✓ Professional UI styling with custom CSS
+
+Database Integration:
+--------------------
+- Uses SQLite database (bilibili_asr.db)
+- Videos table with: id, bilibili_id, title, url, duration, status, created_at
+- All CRUD operations properly integrated
+
+Testing:
+--------
+✓ Python syntax check passed (py_compile)
+✓ Database initialization successful
+✓ Application launches successfully (main.py)
+✓ Tab 1 displays Video List interface
+
+UI Components:
+-------------
+- Top Panel: URL input, Add Video button, Status filter, Refresh button
+- Center: Video table with 6 columns
+- Bottom: Status label showing video count, Delete Selected button
+- Action buttons: View details for each video row
+
+Status: COMPLETED ✓

@@ -1,0 +1,286 @@
+name: stock
+services:
+  frontend:
+    build:
+      context: E:\workspace\Project\stock\frontend
+      dockerfile: Dockerfile
+    depends_on:
+      go-api:
+        condition: service_healthy
+        required: true
+    environment:
+      APP_ENV: development
+      DEVICE: cuda
+      FRONTEND_PORT: "3000"
+      GO_API_PORT: "8080"
+      POSTGRES_DB: asr_db
+      POSTGRES_PASSWORD: postgres123
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: postgres
+      PYTHON_SERVICE_PORT: "8000"
+      REDIS_PASSWORD: redis123
+      REDIS_PORT: "6379"
+      VITE_API_URL: http://localhost:8080
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - -q
+        - --spider
+        - http://localhost:80
+      timeout: 10s
+      interval: 30s
+      retries: 3
+      start_period: 15s
+    networks:
+      asr-network: null
+    ports:
+      - mode: ingress
+        target: 80
+        published: "3000"
+        protocol: tcp
+    restart: unless-stopped
+  go-api:
+    build:
+      context: E:\workspace\Project\stock\go-api
+      dockerfile: Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+        required: true
+      redis:
+        condition: service_healthy
+        required: true
+    environment:
+      APP_ENV: development
+      DATABASE_URL: postgresql://postgres:postgres123@postgres:5432/asr_db?sslmode=disable
+      DEVICE: cuda
+      FRONTEND_PORT: "3000"
+      GO_API_PORT: "8080"
+      POSTGRES_DB: asr_db
+      POSTGRES_PASSWORD: postgres123
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: postgres
+      PYTHON_SERVICE_PORT: "8000"
+      PYTHON_SERVICE_URL: http://python-service:8000
+      REDIS_PASSWORD: redis123
+      REDIS_PORT: "6379"
+      REDIS_URL: redis://:redis123@redis:6379/0
+      VITE_API_URL: http://localhost:8080
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - -q
+        - --spider
+        - http://localhost:8080/health
+      timeout: 10s
+      interval: 30s
+      retries: 3
+      start_period: 15s
+    networks:
+      asr-network: null
+    ports:
+      - mode: ingress
+        target: 8080
+        published: "8080"
+        protocol: tcp
+    restart: unless-stopped
+  postgres:
+    environment:
+      POSTGRES_DB: asr_db
+      POSTGRES_PASSWORD: postgres123
+      POSTGRES_USER: postgres
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U postgres -d asr_db
+      timeout: 5s
+      interval: 10s
+      retries: 5
+      start_period: 10s
+    image: postgres:15-alpine
+    networks:
+      asr-network: null
+    ports:
+      - mode: ingress
+        target: 5432
+        published: "5432"
+        protocol: tcp
+    restart: unless-stopped
+    volumes:
+      - type: volume
+        source: postgres-data
+        target: /var/lib/postgresql/data
+        volume: {}
+  python-service:
+    build:
+      context: E:\workspace\Project\stock\python-service
+      dockerfile: Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+        required: true
+      redis:
+        condition: service_healthy
+        required: true
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities:
+                - gpu
+              driver: nvidia
+              count: 1
+    environment:
+      APP_ENV: development
+      DATABASE_URL: postgresql://postgres:postgres123@postgres:5432/asr_db?sslmode=disable
+      DEVICE: cuda
+      FRONTEND_PORT: "3000"
+      GO_API_PORT: "8080"
+      MODEL_PATH: /app/models
+      POSTGRES_DB: asr_db
+      POSTGRES_PASSWORD: postgres123
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: postgres
+      PYTHON_SERVICE_PORT: "8000"
+      REDIS_PASSWORD: redis123
+      REDIS_PORT: "6379"
+      REDIS_URL: redis://:redis123@redis:6379/0
+      VITE_API_URL: http://localhost:8080
+    healthcheck:
+      test:
+        - CMD
+        - curl
+        - -f
+        - http://localhost:8000/health
+      timeout: 10s
+      interval: 30s
+      retries: 3
+      start_period: 1m0s
+    networks:
+      asr-network: null
+    ports:
+      - mode: ingress
+        target: 8000
+        published: "8000"
+        protocol: tcp
+    restart: unless-stopped
+    volumes:
+      - type: bind
+        source: E:\workspace\Project\stock\models
+        target: /app/models
+        bind:
+          create_host_path: true
+      - type: volume
+        source: whisper-cache
+        target: /app/.cache
+        volume: {}
+  redis:
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --requirepass
+      - redis123
+    healthcheck:
+      test:
+        - CMD
+        - redis-cli
+        - -a
+        - redis123
+        - ping
+      timeout: 5s
+      interval: 10s
+      retries: 5
+      start_period: 5s
+    image: redis:7-alpine
+    networks:
+      asr-network: null
+    ports:
+      - mode: ingress
+        target: 6379
+        published: "6379"
+        protocol: tcp
+    restart: unless-stopped
+    volumes:
+      - type: volume
+        source: redis-data
+        target: /data
+        volume: {}
+  worker:
+    build:
+      context: E:\workspace\Project\stock\python-service
+      dockerfile: Dockerfile
+    command:
+      - python
+      - -m
+      - worker
+    depends_on:
+      postgres:
+        condition: service_healthy
+        required: true
+      python-service:
+        condition: service_healthy
+        required: true
+      redis:
+        condition: service_healthy
+        required: true
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities:
+                - gpu
+              driver: nvidia
+              count: 1
+    environment:
+      APP_ENV: development
+      DATABASE_URL: postgresql://postgres:postgres123@postgres:5432/asr_db?sslmode=disable
+      DEVICE: cuda
+      FRONTEND_PORT: "3000"
+      GO_API_PORT: "8080"
+      MODEL_PATH: /app/models
+      POSTGRES_DB: asr_db
+      POSTGRES_PASSWORD: postgres123
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: postgres
+      PYTHON_SERVICE_PORT: "8000"
+      REDIS_PASSWORD: redis123
+      REDIS_PORT: "6379"
+      REDIS_URL: redis://:redis123@redis:6379/0
+      VITE_API_URL: http://localhost:8080
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import redis; r = redis.Redis(host='redis', port=6379, password='redis123', decode_responses=True); r.ping()
+      timeout: 10s
+      interval: 30s
+      retries: 3
+      start_period: 30s
+    networks:
+      asr-network: null
+    restart: unless-stopped
+    volumes:
+      - type: bind
+        source: E:\workspace\Project\stock\models
+        target: /app/models
+        bind:
+          create_host_path: true
+      - type: volume
+        source: whisper-cache
+        target: /app/.cache
+        volume: {}
+networks:
+  asr-network:
+    name: stock_asr-network
+    driver: bridge
+volumes:
+  postgres-data:
+    name: stock_postgres-data
+  redis-data:
+    name: stock_redis-data
+  whisper-cache:
+    name: stock_whisper-cache

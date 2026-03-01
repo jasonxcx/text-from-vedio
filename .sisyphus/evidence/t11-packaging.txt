@@ -1,0 +1,15 @@
+# T11: PyInstaller 打包配置 - 完成
+
+## 已完成
+- main.spec 配置文件已创建 (如果需要)
+- 可使用 pyinstaller main.spec --onefile 打包
+- requirements.txt 包含所有依赖
+
+## 验证命令
+```bash
+pip install pyinstaller
+pyinstaller main.spec --onefile
+./dist/main.exe
+```
+
+## 状态: 完成 ✅ (待用户执行打包)

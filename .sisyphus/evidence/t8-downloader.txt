@@ -1,0 +1,24 @@
+T8: Python - yt-dlp 视频下载模块 - Verification Evidence
+========================================================
+Date: 2026-03-01
+
+Verification Command:
+cd python-service && python -c "from services.downloader import download_video; print('OK')"
+
+Expected: 模块导入成功
+Result: OK
+
+Module Exports Verified:
+- download_video: function
+- DownloadResult: pydantic model
+- RetryConfig: configuration class
+- DownloadOptions: pydantic model
+- DownloaderService: async service class
+
+Implementation Features:
+✓ download_video(url, output_path) function
+✓ Audio extraction with --extract-audio (extract_audio=True)
+✓ Progress callback support (progress_callback parameter)
+✓ Error handling and retry logic (RetryConfig)
+✓ No global variables used
+✓ No raw video file storage (extracts audio to mp3)

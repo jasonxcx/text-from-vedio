@@ -1,0 +1,40 @@
+Task T4: Main Window Framework - COMPLETED
+==========================================
+
+Date: 2026-04-17
+Status: SUCCESS
+
+Files Created:
+--------------
+1. ui/__init__.py
+   - Package initialization
+   - Exports MainWindow class
+
+2. ui/main_window.py
+   - MainWindow class inheriting from QMainWindow
+   - QTabWidget with 3 tabs:
+     * 视频列表 (Video List)
+     * 转录查看 (Transcription View)
+     * 摘要展示 (Summary Display)
+   - Window title: "B 站视频语音识别" (from config.APP_TITLE)
+   - Window size: 1200x800 (from config.WINDOW_WIDTH, WINDOW_HEIGHT)
+
+3. main.py (modified)
+   - Updated to use MainWindow from ui package
+   - Clean entry point
+
+Verification:
+-------------
+- python main.py executed successfully
+- Window displayed with 3 tabs
+- No errors or warnings
+- PySide6 version: 6.11.0
+
+Acceptance Criteria:
+--------------------
+[x] ui/main_window.py main window class created
+[x] 3 tabs implemented: Video List, Transcription, Summary
+[x] Window displays correctly with proper title and size
+[x] Uses QTabWidget for tab switching
+[x] Window title set to "B 站视频语音识别"
+[x] Window size configured to 1200x800

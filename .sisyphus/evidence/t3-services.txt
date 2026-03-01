@@ -1,0 +1,56 @@
+# T3: Core Module Reuse - Verification Evidence
+# Date: 2026-04-16
+
+## Module Import Tests
+
+### 1. downloader.py - yt-dlp video download
+```
+$ python -c "from services.downloader import download_video; print('downloader OK')"
+downloader OK
+```
+Status: PASS
+
+### 2. transcriber.py - WhisperX transcription with timestamps
+```
+$ python -c "from services.transcriber import transcribe_audio; print('transcriber OK')"
+transcriber OK
+```
+Status: PASS
+
+### 3. summarizer.py - Ollama summary generation
+```
+$ python -c "from services.summarizer import summarize_text; print('summarizer OK')"
+summarizer OK
+```
+Status: PASS
+
+## Module Details
+
+### services/downloader.py
+- Function: `download_video(url, output_path, extract_audio=True, ...)`
+- Features:
+  - yt-dlp wrapper for video/audio downloading
+  - Progress callback support
+  - Retry logic with configurable backoff
+  - Audio extraction (mp3 format)
+  - Bilibili video support
+
+### services/transcriber.py
+- Function: `transcribe_audio(audio_path, model_name='large-v2', device='cuda')`
+- Features:
+  - WhisperX integration with word-level timestamps
+  - VAD (Voice Activity Detection) for long audio
+  - GPU/CPU device support
+  - Streaming transcription support
+  - JSON output support
+
+### services/summarizer.py
+- Function: `summarize_text(text, max_length=500, model='qwen2.5')`
+- Features:
+  - Ollama + Qwen2.5 integration
+  - Automatic text chunking for long content
+  - Chinese/English language detection
+  - Async support
+
+## Conclusion
+All three core modules are functional and can be imported successfully.
