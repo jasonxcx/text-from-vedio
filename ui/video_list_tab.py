@@ -14,6 +14,7 @@ from app.database import (
     get_all_videos, add_video, update_video_status,
     delete_video, get_video_by_bilibili_id, get_video_with_details
 )
+from ui.batch_add_dialog import BatchAddDialog
 
 
 class VideoListTab(QWidget):
@@ -80,6 +81,26 @@ class VideoListTab(QWidget):
         """)
         panel.addWidget(self.add_btn)
 
+        # Batch Add Button
+        self.batch_add_btn = QPushButton("批量添加")
+        self.batch_add_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #17a2b8;
+                color: white;
+                border: none;
+                padding: 8px 16px;
+                border-radius: 4px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #138496;
+            }
+            QPushButton:pressed {
+                background-color: #117a8b;
+            }
+        """)
+        panel.addWidget(self.batch_add_btn)
+
         # Spacer
         panel.addStretch()
 
@@ -89,7 +110,7 @@ class VideoListTab(QWidget):
         panel.addWidget(filter_label)
 
         self.status_filter = QComboBox()
-        self.status_filter.addItems(["全部", "等待中", "下载中", "转录中", "整理中", "已完成", "失败"])
+        self.status_filter.addItems(["全部", "等待中", "排队中", "下载中", "转录中", "整理中", "已完成", "失败"])
         self.status_filter.setMinimumWidth(120)
         panel.addWidget(self.status_filter)
 
@@ -192,6 +213,7 @@ class VideoListTab(QWidget):
     def _connect_signals(self):
         """Connect widget signals to slots"""
         self.add_btn.clicked.connect(self._on_add_video)
+        self.batch_add_btn.clicked.connect(self._on_batch_add_video)
         self.refresh_btn.clicked.connect(self._load_videos)
         self.status_filter.currentTextChanged.connect(self._load_videos)
         self.delete_btn.clicked.connect(self._on_delete_selected)
@@ -204,6 +226,7 @@ class VideoListTab(QWidget):
         status_map = {
             "全部": None,
             "等待中": "pending",
+            "排队中": "queued",
             "下载中": "downloading",
             "转录中": "transcribing",
             "整理中": "summarizing",
@@ -215,8 +238,13 @@ class VideoListTab(QWidget):
         # 状态中文映射（用于显示）
         status_cn_map = {
             "pending": "等待中",
+            "queued": "排队中",
+            "queued_download": "排队下载",
             "downloading": "下载中",
+            "queued_transcribe": "排队转录",
             "transcribing": "转录中",
+            "transcribed": "已转录",  # 新增：转录完成，等待/跳过摘要
+            "queued_summary": "排队摘要",
             "summarizing": "整理中",
             "completed": "已完成",
             "failed": "失败",
@@ -225,13 +253,18 @@ class VideoListTab(QWidget):
 
         # 状态颜色映射
         status_colors = {
-            "pending": ("#ffc107", "#333"),      # 黄色背景
-            "downloading": ("#17a2b8", "#fff"),  # 蓝色
-            "transcribing": ("#6f42c1", "#fff"),  # 紫色
-            "summarizing": ("#fd7e14", "#fff"),   # 橙色
-            "completed": ("#28a745", "#fff"),    # 绿色
-            "failed": ("#dc3545", "#fff"),       # 红色
-            "cancelled": ("#6c757d", "#fff")     # 灰色
+            "pending": ("#ffc107", "#333"),           # 黄色
+            "queued": ("#20c997", "#fff"),            # 青绿色
+            "queued_download": ("#20c997", "#fff"),   # 青绿色
+            "downloading": ("#17a2b8", "#fff"),       # 蓝色
+            "queued_transcribe": ("#20c997", "#fff"),  # 青绿色
+            "transcribing": ("#6f42c1", "#fff"),      # 紫色
+            "transcribed": ("#20c997", "#fff"),       # 青绿色（转录完成）
+            "queued_summary": ("#20c997", "#fff"),     # 青绿色
+            "summarizing": ("#fd7e14", "#fff"),       # 橙色
+            "completed": ("#28a745", "#fff"),          # 绿色
+            "failed": ("#dc3545", "#fff"),            # 红色
+            "cancelled": ("#6c757d", "#fff")          # 灰色
         }
 
         # Fetch videos
@@ -256,6 +289,8 @@ class VideoListTab(QWidget):
 
             # Duration
             duration = video["duration"] or 0
+            # 确保 duration 是整数（可能是 float 类型）
+            duration = int(duration)
             duration_str = f"{duration // 60}:{duration % 60:02d}" if duration > 0 else "未知"
             duration_item = QTableWidgetItem(duration_str)
             duration_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -304,7 +339,7 @@ class VideoListTab(QWidget):
             db_status = video["status"]
             
 # 转录按钮（有转录内容时显示）
-            if db_status == "completed":
+            if db_status in ["completed", "transcribed"]:
                 transcript_btn = QPushButton("转录")
                 transcript_btn.setFixedSize(55, 32)
                 transcript_btn.setStyleSheet("""
@@ -424,6 +459,66 @@ class VideoListTab(QWidget):
             self._load_videos()
         except Exception as e:
             QMessageBox.critical(self, "错误", f"添加视频失败：{str(e)}")
+
+    @Slot()
+    def _on_batch_add_video(self):
+        """Handle batch add video button click"""
+        dialog = BatchAddDialog(self)
+        dialog.videos_confirmed.connect(self._handle_batch_videos)
+        dialog.exec()
+
+    @Slot(list)
+    def _handle_batch_videos(self, videos: list):
+        """Handle confirmed batch videos"""
+        if not videos:
+            return
+        
+        added_count = 0
+        duplicate_count = 0
+        error_count = 0
+        
+        for video_info in videos:
+            try:
+                bilibili_id = video_info['bilibili_id']
+                
+                # Check if video already exists
+                existing = get_video_by_bilibili_id(bilibili_id)
+                if existing:
+                    duplicate_count += 1
+                    continue
+                
+                # Add video to database
+                video_id = add_video(
+                    bilibili_id=bilibili_id,
+                    title=video_info['title'],
+                    url=video_info['url'],
+                    duration=video_info['duration'],
+                    status="pending"
+                )
+                
+                video = get_video_by_bilibili_id(bilibili_id)
+                if video:
+                    self.video_added.emit(video)
+                
+                added_count += 1
+            except Exception as e:
+                error_count += 1
+                continue
+        
+        # Show result message
+        message_parts = []
+        if added_count > 0:
+            message_parts.append(f"成功添加 {added_count} 个视频")
+        if duplicate_count > 0:
+            message_parts.append(f"{duplicate_count} 个视频已存在")
+        if error_count > 0:
+            message_parts.append(f"{error_count} 个视频添加失败")
+        
+        message = '\n'.join(message_parts)
+        QMessageBox.information(self, "批量添加完成", message)
+        
+        # Refresh video list
+        self._load_videos()
 
     @Slot()
     def _show_video_detail(self, video: dict):
