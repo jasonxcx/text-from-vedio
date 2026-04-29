@@ -174,6 +174,13 @@ class ProcessWorker(QThread):
             
             logger.info(f"[Worker {self.video_id}] Transcription complete: {len(transcription.segments)} segments, {len(transcription.full_text)} chars")
             
+            # 转录完成后立即保存，这样即使摘要失败也能查看转录
+            logger.info(f"[Worker {self.video_id}] Saving transcription immediately...")
+            self._save_results(transcription, "", None)
+            update_video_status(self.video_id, "transcribed")
+            self.status_changed.emit(self.video_id, "transcribed")
+            logger.info(f"[Worker {self.video_id}] Transcription saved and status updated to 'transcribed'")
+            
             # Check if summary is enabled
             if config.get('summary.enabled', True):
                 # Stage 3: Summarize
@@ -199,29 +206,41 @@ class ProcessWorker(QThread):
                         logger.warning(f"[Worker {self.video_id}] Summary generation returned None")
                 except Exception as e:
                     logger.error(f"[Worker {self.video_id}] Summary generation failed: {str(e)}")
-                    # 摘要失败不阻止转录结果保存
+                    # 摘要失败不阻止完成，转录已经保存
                     summary_result = None
                 
-                # Save results
+                # 如果摘要成功，更新摘要到数据库
                 if summary_result and isinstance(summary_result, dict):
                     summary_text = summary_result.get("summary", "")
-                    self._save_results(transcription, summary_text, summary_result)
-                    logger.info(f"[Worker {self.video_id}] Results saved with summary")
+                    from app.database import add_summary, delete_transcripts_by_video
+                    # 更新摘要（先删除旧的）
+                    with get_db() as conn:
+                        cursor = conn.cursor()
+                        cursor.execute("DELETE FROM summaries WHERE video_id = ?", (self.video_id,))
+                        conn.commit()
+                    key_points = summary_result.get("key_points", [])
+                    add_summary(self.video_id, summary_text, key_points)
+                    logger.info(f"[Worker {self.video_id}] Summary saved to database")
+                    
+                    # 更新状态为完成
+                    update_video_status(self.video_id, self.STAGE_COMPLETE)
+                    self.status_changed.emit(self.video_id, self.STAGE_COMPLETE)
+                    self._emit_stage(self.STAGE_COMPLETE)
+                    self.finished.emit(self.video_id, True, "处理完成")
                 else:
-                    # 摘要失败，只保存转录
-                    self._save_results(transcription, "", None)
-                    logger.info(f"[Worker {self.video_id}] Results saved without summary")
+                    # 摘要失败，但转录已保存，状态保持为 transcribed
+                    logger.info(f"[Worker {self.video_id}] Summary failed, but transcription is available")
+                    update_video_status(self.video_id, "transcribed")
+                    self.status_changed.emit(self.video_id, "transcribed")
+                    self.finished.emit(self.video_id, True, "转录完成，摘要失败")
             else:
-                # Summary disabled, save only transcription
-                logger.info(f"[Worker {self.video_id}] Summary disabled, saving transcription only")
-                self._save_results(transcription, "", None)
-                logger.info(f"[Worker {self.video_id}] Results saved successfully")
+                # Summary disabled, already saved
+                logger.info(f"[Worker {self.video_id}] Summary disabled, transcription already saved")
+                update_video_status(self.video_id, self.STAGE_COMPLETE)
+                self.status_changed.emit(self.video_id, self.STAGE_COMPLETE)
+                self._emit_stage(self.STAGE_COMPLETE)
+                self.finished.emit(self.video_id, True, "处理完成")
             
-            # Mark as complete
-            update_video_status(self.video_id, self.STAGE_COMPLETE)
-            self.status_changed.emit(self.video_id, self.STAGE_COMPLETE)
-            self._emit_stage(self.STAGE_COMPLETE)
-            self.finished.emit(self.video_id, True, "处理完成")
             logger.info(f"[Worker {self.video_id}] Pipeline completed successfully")
             
         except Exception as e:
@@ -295,9 +314,17 @@ class ProcessWorker(QThread):
                     extract_audio=True,
                     progress_callback=progress_callback,
                     retry_config=retry_config,
+                    cookies=config.get('download.cookies', ''),
+                    use_custom_headers=config.get('download.use_custom_headers', True),
                 )
                 
                 if result.success:
+                    # 下载成功，更新视频标题和时长到数据库
+                    if result.title and result.title != 'video':
+                        logger.info(f"更新视频标题：{result.title}")
+                        from app.database import update_video
+                        update_video(self.video_id, title=result.title, duration=result.duration)
+                    
                     self.progress.emit(self.STAGE_DOWNLOAD, 100, "下载完成")
                     return result.file_path
                     
@@ -594,3 +621,139 @@ class WorkerManager(QObject):
             
         if self._active_count == 0:
             self.all_workers_finished.emit()
+
+
+# ============================================================================
+# Queue-based concurrent processing (Task 5 integration)
+# ============================================================================
+
+from app.task_queue import StageQueue, Task, TaskStage
+from config import config
+
+
+class DownloadStageQueue(StageQueue):
+    """下载阶段队列 - 调用 download_video 函数"""
+
+    def __init__(self, max_workers: int = 3):
+        super().__init__(
+            name="download",
+            max_workers=max_workers,
+            stage=TaskStage.DOWNLOADING,
+            next_stage=TaskStage.QUEUED_TRANSCRIBE
+        )
+
+    def _run_task(self, task: Task):
+        """执行下载任务"""
+        try:
+            logger.info(f"DownloadQueue: Starting download for video {task.video_id}")
+
+            # 调用现有的 download_video 函数
+            result = download_video(
+                url=task.url,
+                bilibili_id=task.bilibili_id,
+                title=task.title,
+                progress_callback=None  # 队列模式暂不提供进度回调
+            )
+
+            if result.success:
+                task.audio_path = result.audio_path
+                task.result = result
+                logger.info(f"DownloadQueue: Download complete for video {task.video_id}")
+            else:
+                task.error = result.error_message
+                task.stage = TaskStage.FAILED
+                logger.error(f"DownloadQueue: Download failed for video {task.video_id}: {result.error_message}")
+
+        except Exception as e:
+            logger.exception(f"DownloadQueue: Exception for video {task.video_id}: {e}")
+            task.error = str(e)
+            task.stage = TaskStage.FAILED
+
+
+class TranscribeStageQueue(StageQueue):
+    """转录阶段队列 - 调用 transcribe_audio 函数（单线程）"""
+
+    def __init__(self, max_workers: int = 1):
+        super().__init__(
+            name="transcribe",
+            max_workers=max_workers,  # 必须为1，GPU限制
+            stage=TaskStage.TRANSCRIBING,
+            next_stage=TaskStage.QUEUED_SUMMARY
+        )
+
+    def _run_task(self, task: Task):
+        """执行转录任务"""
+        try:
+            logger.info(f"TranscribeQueue: Starting transcription for video {task.video_id}")
+
+            # 调用现有的 transcribe_audio 函数
+            result = transcribe_audio(
+                audio_path=task.audio_path,
+                progress_callback=None
+            )
+
+            if result.success:
+                task.transcription_result = result
+                task.result = result
+                logger.info(f"TranscribeQueue: Transcription complete for video {task.video_id}")
+            else:
+                task.error = result.error_message
+                task.stage = TaskStage.FAILED
+                logger.error(f"TranscribeQueue: Transcription failed for video {task.video_id}: {result.error_message}")
+
+        except Exception as e:
+            logger.exception(f"TranscribeQueue: Exception for video {task.video_id}: {e}")
+            task.error = str(e)
+            task.stage = TaskStage.FAILED
+
+
+class SummaryStageQueue(StageQueue):
+    """摘要阶段队列 - 调用 summarize_text 函数（可并发）"""
+
+    def __init__(self, max_workers: int = 3):
+        super().__init__(
+            name="summary",
+            max_workers=max_workers,
+            stage=TaskStage.SUMMARIZING,
+            next_stage=TaskStage.COMPLETED
+        )
+
+    def _run_task(self, task: Task):
+        """执行摘要任务"""
+        try:
+            logger.info(f"SummaryQueue: Starting summarization for video {task.video_id}")
+
+            # 获取转录文本
+            full_text = ""
+            if task.transcription_result and hasattr(task.transcription_result, 'full_text'):
+                full_text = task.transcription_result.full_text
+            elif task.result and hasattr(task.result, 'full_text'):
+                full_text = task.result.full_text
+
+            if not full_text:
+                task.error = "No transcription text available for summarization"
+                task.stage = TaskStage.FAILED
+                logger.error(f"SummaryQueue: No text to summarize for video {task.video_id}")
+                return
+
+            # 调用现有的 summarize_text 函数
+            result = summarize_text(
+                text=full_text,
+                max_length=500,
+                progress_callback=None
+            )
+
+            if result is not None:
+                task.summary_result = result
+                task.result = result
+                task.stage = TaskStage.COMPLETED
+                logger.info(f"SummaryQueue: Summarization complete for video {task.video_id}")
+            else:
+                task.error = result.get("summary", "Summary generation failed") if isinstance(result, dict) else "Summary generation failed"
+                task.stage = TaskStage.FAILED
+                logger.error(f"SummaryQueue: Summarization failed for video {task.video_id}: {task.error}")
+
+        except Exception as e:
+            logger.exception(f"SummaryQueue: Exception for video {task.video_id}: {e}")
+            task.error = str(e)
+            task.stage = TaskStage.FAILED

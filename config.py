@@ -62,6 +62,29 @@ DEFAULT_CONFIG = {
         "window_height": 650,
         "title": "BiliBili ASR",
         "theme": "dark",  # dark, light
+    },
+    # Download Settings - B站视频下载配置
+    "download": {
+        "cookies": "",  # B站Cookie字符串（解决412错误）
+        "use_custom_headers": True,  # 是否使用自定义请求头
+    },
+    # Queue Settings - Concurrency control for processing pipeline
+    "queue": {
+        "download": {
+            "max_concurrency": 3,
+            "max_retries": 3,
+            "retry_delay": 5,
+        },
+        "transcribe": {
+            "max_concurrency": 1,
+            "max_retries": 3,
+            "retry_delay": 10,
+        },
+        "summary": {
+            "max_concurrency": 3,
+            "max_retries": 3,
+            "retry_delay": 5,
+        },
     }
 }
 
@@ -150,6 +173,11 @@ class Config:
         """Get app settings"""
         return self._config.get("app", {})
     
+    @property
+    def download(self) -> Dict:
+        """Get download settings"""
+        return self._config.get("download", {})
+    
     # Convenience properties for backward compatibility
     @property
     def WHISPER_MODEL(self) -> str:
@@ -166,6 +194,19 @@ class Config:
     @property
     def OLLAMA_HOST(self) -> str:
         return self.get('summary.ollama.base_url', 'http://localhost:11434')
+    
+    # Queue concurrency properties
+    @property
+    def DOWNLOAD_CONCURRENCY(self) -> int:
+        return self.get('queue.download.max_concurrency', 3)
+    
+    @property
+    def TRANSCRIBE_CONCURRENCY(self) -> int:
+        return self.get('queue.transcribe.max_concurrency', 1)
+    
+    @property
+    def SUMMARY_CONCURRENCY(self) -> int:
+        return self.get('queue.summary.max_concurrency', 3)
 
 
 # Create global config instance
@@ -179,6 +220,11 @@ OLLAMA_HOST = _config.OLLAMA_HOST
 WINDOW_WIDTH = _config.get('app.window_width', 800)
 WINDOW_HEIGHT = _config.get('app.window_height', 650)
 APP_TITLE = _config.get('app.title', 'BiliBili ASR')
+
+# Queue concurrency exports
+DOWNLOAD_CONCURRENCY = _config.DOWNLOAD_CONCURRENCY
+TRANSCRIBE_CONCURRENCY = _config.TRANSCRIBE_CONCURRENCY
+SUMMARY_CONCURRENCY = _config.SUMMARY_CONCURRENCY
 
 # Export config instance for advanced usage
 config: Config = _config

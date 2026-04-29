@@ -5,11 +5,12 @@ Settings Tab for configuration management
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QFormLayout,
     QLabel, QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox,
-    QCheckBox, QPushButton, QGroupBox, QMessageBox, QScrollArea
+    QCheckBox, QPushButton, QGroupBox, QMessageBox, QScrollArea, QDialog
 )
 from PySide6.QtCore import Qt, Signal
 
 from config import config
+from ui.cookie_dialog import CookieConfigDialog
 
 
 class SettingsTab(QWidget):
@@ -132,7 +133,63 @@ class SettingsTab(QWidget):
         summary_layout.addRow("随机性:", self.temperature_spin)
         
         layout.addWidget(summary_group)
+
+        # === Download Settings ===
+        download_group = QGroupBox("下载设置")
+        download_layout = QVBoxLayout(download_group)
+        download_layout.setSpacing(10)
         
+        download_info = QLabel("B站视频下载配置，用于解决 HTTP 412 错误")
+        download_info.setStyleSheet("color: #666; font-size: 12px;")
+        download_layout.addWidget(download_info)
+        
+        cookie_btn = QPushButton("配置B站Cookie")
+        cookie_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #17a2b8;
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                border-radius: 4px;
+            }
+            QPushButton:hover {
+                background-color: #138496;
+            }
+        """)
+        cookie_btn.clicked.connect(self._open_cookie_dialog)
+        download_layout.addWidget(cookie_btn)
+        
+        # Cookie状态提示
+        self.cookie_status_label = QLabel()
+        self._update_cookie_status()
+        download_layout.addWidget(self.cookie_status_label)
+        
+        layout.addWidget(download_group)
+
+        # === Task Queue Concurrency Settings ===
+        queue_group = QGroupBox("任务并发设置")
+        queue_layout = QFormLayout(queue_group)
+        queue_layout.setSpacing(10)
+
+        self.download_concurrency_spin = QSpinBox()
+        self.download_concurrency_spin.setRange(1, 10)
+        self.download_concurrency_spin.setToolTip("同时下载的视频数量\n网络带宽充足时可提高")
+        queue_layout.addRow("下载并发数:", self.download_concurrency_spin)
+
+        self.transcribe_concurrency_spin = QSpinBox()
+        self.transcribe_concurrency_spin.setRange(1, 1)
+        self.transcribe_concurrency_spin.setValue(1)
+        self.transcribe_concurrency_spin.setEnabled(False)
+        self.transcribe_concurrency_spin.setToolTip("转录必须单线程（GPU显存限制）")
+        queue_layout.addRow("转录并发数:", self.transcribe_concurrency_spin)
+
+        self.summary_concurrency_spin = QSpinBox()
+        self.summary_concurrency_spin.setRange(1, 10)
+        self.summary_concurrency_spin.setToolTip("同时生成摘要的数量\nCPU和内存充足时可提高")
+        queue_layout.addRow("摘要并发数:", self.summary_concurrency_spin)
+
+        layout.addWidget(queue_group)
+
         # === Save Button ===
         button_layout = QHBoxLayout()
         button_layout.addStretch()
@@ -215,6 +272,10 @@ class SettingsTab(QWidget):
         
         # Update enabled state
         self._on_summary_enabled_changed(self.summary_enabled.checkState().value)
+
+        # Queue concurrency settings
+        self.download_concurrency_spin.setValue(config.get('queue.download.max_concurrency', 3))
+        self.summary_concurrency_spin.setValue(config.get('queue.summary.max_concurrency', 3))
         
     def _save_settings(self):
         """Save settings to config"""
@@ -238,7 +299,11 @@ class SettingsTab(QWidget):
             
             config.set('summary.max_length', self.max_length_spin.value())
             config.set('summary.temperature', self.temperature_spin.value())
-            
+
+            # Queue concurrency settings
+            config.set('queue.download.max_concurrency', self.download_concurrency_spin.value())
+            config.set('queue.summary.max_concurrency', self.summary_concurrency_spin.value())
+
             self.settings_saved.emit()
             QMessageBox.information(self, "保存成功", "设置已保存，新设置将在下次处理任务时生效")
             
@@ -248,3 +313,24 @@ class SettingsTab(QWidget):
     def refresh(self):
         """Refresh settings (reload from config)"""
         self._load_settings()
+        
+    def _open_cookie_dialog(self):
+        """打开Cookie配置弹窗"""
+        dialog = CookieConfigDialog(self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self._update_cookie_status()
+            
+    def _update_cookie_status(self):
+        """更新Cookie状态提示"""
+        cookies = config.get('download.cookies', '')
+        use_headers = config.get('download.use_custom_headers', True)
+        
+        if cookies:
+            self.cookie_status_label.setText("✓ Cookie已配置")
+            self.cookie_status_label.setStyleSheet("color: #28a745;")
+        elif use_headers:
+            self.cookie_status_label.setText("⚠ 仅使用自定义请求头（可能无法解决412错误）")
+            self.cookie_status_label.setStyleSheet("color: #ffc107;")
+        else:
+            self.cookie_status_label.setText("✗ 未配置Cookie和请求头")
+            self.cookie_status_label.setStyleSheet("color: #dc3545;")

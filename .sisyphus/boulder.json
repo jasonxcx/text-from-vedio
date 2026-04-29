@@ -1,9 +1,31 @@
 {
-  "active_plan": "E:\\workspace\\Project\\stock\\.sisyphus\\plans\\bilibili-asr-system.md",
-  "started_at": "2026-02-28T18:39:04.016Z",
+  "active_plan": "E:\\workspace\\Project\\text-from-vedio\\.sisyphus\\plans\\improvement-plan.md",
+  "started_at": "2026-04-19T08:47:55.859Z",
   "session_ids": [
-    "ses_35aabb1a6ffeM0eYCZmIM5vloe"
+    "ses_25c0f3de1ffeKchpTv2VaZ2PS8"
   ],
-  "plan_name": "bilibili-asr-system",
-  "agent": "atlas"
+  "session_origins": {
+    "ses_25c0f3de1ffeKchpTv2VaZ2PS8": "direct"
+  },
+  "plan_name": "improvement-plan",
+  "agent": "atlas",
+  "task_sessions": {
+    "todo:1": {
+      "task_key": "todo:1",
+      "task_label": "1",
+      "task_title": "语义分段优化 - 移除固定时长分段逻辑",
+      "session_id": "ses_25b119f2effeYQuiiO3u0OdcXw",
+      "agent": "Sisyphus-Junior",
+      "category": "quick",
+      "updated_at": "2026-04-19T08:55:11.215Z"
+    },
+    "todo:5": {
+      "task_key": "todo:5",
+      "task_label": "5",
+      "task_title": "Worker重构集成 - 实现阶段队列管理",
+      "session_id": "ses_25ade6694ffeop4cE3FHWjGzBk",
+      "agent": "oracle",
+      "updated_at": "2026-04-19T09:45:46.609Z"
+    }
+  }
 }
